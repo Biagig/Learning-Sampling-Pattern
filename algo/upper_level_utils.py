@@ -32,6 +32,10 @@ def psi_vec(x,gamma):
     x = np.abs(x)
     return np.where(x<gamma,-1/x/gamma**2,-1/x**3)
 
-#Def of psi(x).x since useful when we use only 1 linear operator and avoids singularity
+#Def of phi(x).x and psi(x).x since useful when we use only 1 linear operator and avoids singularity
+def phix_vec(x,gamma):
+    absx = np.abs(x)
+    return np.where(absx<=gamma,-x*absx/gamma**2+2*x/gamma,x/absx)
+
 def psix_vec(x,gamma):
-    return np.where(np.abs(x)<gamma,-1/gamma**2,-1/x**2)
+    return np.where(np.abs(x)<gamma,-x/np.abs(x)/gamma**2,-x/np.abs(x)**3)
