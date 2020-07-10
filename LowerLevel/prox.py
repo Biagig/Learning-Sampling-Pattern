@@ -1,3 +1,6 @@
+# --------------------------------------
+# -- DEFINITION OF PROXIMAL OPERATORS --
+# --------------------------------------
 import numpy as np
 
 def prox_G(x,c,epsilon):

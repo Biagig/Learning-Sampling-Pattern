@@ -1,6 +1,9 @@
+# -------------------------------------------------------------
+# -- MAIN FUNCTION OPTIMIZING THE ENERGY WITH PDHG ALGORITHM --
+# -------------------------------------------------------------
 import numpy as np
-from algo.prox import prox_F1_dual,prox_F2_dual,prox_G
-from algo.cost_utils import energy_wavelet
+from LowerLevel.prox import prox_F1_dual,prox_F2_dual,prox_G
+from LowerLevel.cost_utils import energy_wavelet
 import time
 from modopt.math.metrics import ssim
 
@@ -14,17 +17,19 @@ def compute_constants(param,const,p):
     # OUTPUT: dict of pdhg constants    
     L=1
     #From Sherry's code, don't know if there is a way to find something better
-    eta = max(np.amax(p)**2,param["pn1"]*5/2/param["gamma"])
+    eta = max(np.amax(p)**2,param["pn1"]*4/param["gamma"])
     mu = 2*np.sqrt(param["epsilon"]/(1+L**2)/eta)
     theta = 1/(1+mu)
-    if not ("sigma" in const.keys()) and not ("tau" in const.keys()):
-        tau = mu/2/param["epsilon"]
-        sigma = mu*eta/2
-    else:
-        sigma=const["sigma"]
-        tau=const["tau"]
+
+    const["L"]=L
+    const["eta"]=eta
+    const["mu"]=mu
+    const["theta"]=theta
+    if not ("sigma" in const.keys()) or not ("tau" in const.keys()):
+        const["tau"] = mu/2/param["epsilon"]
+        const["sigma"] = mu*eta/2
     
-    return {"L":1,"eta":eta,"mu":mu,"tau":tau,"sigma":sigma,"theta":theta}
+    return const
 
 
 def step(uk,vk,wk,uk_bar,const,p,y,param,linear_op,fourier_op):
@@ -33,7 +38,7 @@ def step(uk,vk,wk,uk_bar,const,p,y,param,linear_op,fourier_op):
     # --
     # INPUTS: - uk,vk,wk,uk_bar: values after k iterations of the pdhg algorithm
     #         - const,param: dicts of pdhg constants and energy parameters
-    # OUTPUTS: - uk1,vk1,wk1,uk_bar1: calues after k+1 iterations of the algorithm
+    # OUTPUTS: - uk1,vk1,wk1,uk_bar1: values after k+1 iterations of the algorithm
     #          - norm: value of the stopping criterion of the algorithm
     
     #Getting useful parameters
@@ -82,6 +87,7 @@ def pdhg(data,p,fourier_op,linear_op,param,const={},compute_energy=True,ground_t
     n_iter=0
     #Algorithm constants
     const = compute_constants(param,const,p)
+    print("Sigma:",const["sigma"],"\nTau:",const["tau"])
     
     #Initializing
     uk = fourier_op.adj_op(p*data)

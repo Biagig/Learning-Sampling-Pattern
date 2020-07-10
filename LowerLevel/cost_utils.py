@@ -1,3 +1,6 @@
+# ----------------------------------------
+# -- DEFINITION OF COST/ENERGY FUNCTION --
+# ----------------------------------------
 import numpy as np
 
 
