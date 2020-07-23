@@ -46,7 +46,7 @@ def Du_Edata(x,p,**kwargs):
     if fourier_op is None: raise ValueError("An operator fourier_op is needed")
     if y is None: raise ValueError("A parameter y is needed")
 
-    return fourier_op.adj_op(p[:-1]*(fourier_op.op(x)-y))
+    return fourier_op.adj_op(p[:-1]**2*(fourier_op.op(x)-y))
 
 def Du_Ereg(x,p,**kwargs):
     linear_op = kwargs.get("linear_op",None)
@@ -57,6 +57,17 @@ def Du_Ereg(x,p,**kwargs):
     return p[-1]*linear_op.adj_op(phix_vec(linear_op.op(x),gamma))
 
 def Du_Etot(x,p,**kwargs):return Du_Eeps(x,p,**kwargs)+Du_Edata(x,p,**kwargs)+Du_Ereg(x,p,**kwargs)
+
+def Dp_Edata( x, p, **kwargs ):
+    fourier_op = kwargs.get("fourier_op",None)
+    y = kwargs.get("y",None)
+    if fourier_op is None: raise ValueError("An operator fourier_op is needed")
+    if y is None: raise ValueError("A parameter y is needed")
+
+    return p[ :-1 ] * np.abs( fourier_op.op( x ) - y )**2
+
+def Dp_Ereg( x, p, **kwargs ):
+    return 0
 
 
 # -- Second order derivatives --
@@ -113,13 +124,12 @@ def Dpu_Ereg(u,p,w,**kwargs):
     gamma = kwargs.get("gamma",None)
     if linear_op is None: raise ValueError("An operator linear_op is needed")
     if gamma is None: raise ValueError("A parameter gamma is needed")
-
-    return p[-1]*np.sum(np.comp(w)*linear_op.adj_op(phi_vec(linear_op.op(u),gamma)*linear_op.op(u)))
+    exp = linear_op.adj_op(phi_vec(linear_op.op(u),gamma)*linear_op.op(u))
+    return np.sum(np.real(w)*np.real( exp ) + np.imag( w ) * np.imag( exp ))
 
 def Dpu_Etot(u,p,w,**kwargs):
     g = np.zeros((u.shape[0]**2+1,))
     g[:-1] = Dpu_Edata(u,p,w,**kwargs)
-    #Don't learn alpha for the moment
-    g[-1] = 0
-    #g[-1] = Dpu_Ereg(u,p,w,**kwargs)
+    #g[-1] = 0
+    g[-1] = Dpu_Ereg(u,p,w,**kwargs)
     return g
