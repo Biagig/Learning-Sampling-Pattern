@@ -33,7 +33,7 @@ def compute_constants(param,const,p):
     return const
 
 
-def step(uk,vk,wk,uk_bar,const,p,pn1,y,param,linear_op,fourier_op):
+def step(uk,vk,wk,uk_bar,const,p,pn1,y,param,linear_op,fourier_op,mask_type):
     # --
     # -- Computes a step of the pdhg algorithm
     # --
@@ -49,8 +49,9 @@ def step(uk,vk,wk,uk_bar,const,p,pn1,y,param,linear_op,fourier_op):
     epsilon = param["epsilon"]
     theta = const["theta"]
     (n1,n2) = uk.shape
-    
-    vk1 = prox_F1_dual(vk+sigma*uk_bar,sigma,p,y,fourier_op)
+
+    vk1 = prox_F1_dual(vk+sigma*uk_bar,sigma,p,y,fourier_op,mask_type)
+
     wk1 = prox_F2_dual(wk+sigma*linear_op.op(uk_bar),sigma,gamma,pn1,n1*n2)
     uk1 = prox_G(uk-tau*vk1-tau*linear_op.adj_op(wk1),tau,epsilon)
     uk_bar1 = uk1+theta*(uk1-uk)
@@ -90,12 +91,14 @@ def pdhg(data,p,**kwargs):
     if fourier_op is None: raise ValueError("A fourier operator fourier_op must be given")
     if linear_op is None: raise ValueError("A linear operator linear_op must be given")
     if param is None: raise ValueError("Lower level parameters must be given")
+    mask_type = kwargs.get("mask_type","")
+
 
     const = kwargs.get("const",{})
     compute_energy = kwargs.get("compute_energy",False)
     ground_truth = kwargs.get("ground_truth",None)
     maxit = kwargs.get("maxit",200)
-    tol = kwargs.get("tol",1e-4)
+    tol = kwargs.get("tol",1e-6)
     verbose = kwargs.get("verbose",1)
 
 
@@ -126,7 +129,7 @@ def pdhg(data,p,**kwargs):
     #Main loop
     t1 = time.time()
     while n_iter<maxit and norm>tol:
-        uk,vk,wk,uk_bar,norm = step(uk,vk,wk,uk_bar,const,p,pn1,data,param,linear_op,fourier_op)
+        uk,vk,wk,uk_bar,norm = step(uk,vk,wk,uk_bar,const,p,pn1,data,param,linear_op,fourier_op,mask_type)
         n_iter += 1
         
         #Saving informations
