@@ -73,6 +73,7 @@ def pdhg(data,p,**kwargs):
     #                      For the moment, only use waveletN.
     #         - param: lower level energy parameters
     #                  Must contain parameters keys "epsilon" and "gamma".
+    #           mask_type (optional): type of mask used ("cartesian", "radial"). Assume a cartesian mask if not given.
     # --
     # OPTIONAL INPUTS:
     #         - const: algorithm constants if we already know the values we want to use for tau and sigma
