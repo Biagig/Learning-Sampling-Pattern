@@ -60,8 +60,6 @@ def E(**kwargs):
     
 
     # Checking inputs errors
-    if mask_type != "cartesian" and pk is None:raise ValueError("A mask pk should be given")
-    if mask_type == "cartesian" and lk is None:raise ValueError("A parameter lk should be given")
     if images is None or len(images)<1:raise ValueError("At least one image is needed")
     if param is None:raise ValueError("Lower level parameters must be given")
     if len(images)!=len(kspace_data):raise ValueError("Need as many images and kspace data")
@@ -71,6 +69,10 @@ def E(**kwargs):
     Ep = 0
     if mask_type == "cartesian":
         pk = pcart(lk)
+        Ep = P(lk,param["beta"])
+    elif mask_type == "radial_CO":
+        n_rad = kwargs.get("n_rad")
+        pk = pradCO(lk,n_rad)
         Ep = P(lk,param["beta"])
     else:Ep = P(pk,param["beta"])
 
@@ -216,35 +218,35 @@ def grad_E(**kwargs):
     mask_type = kwargs.get("mask_type","")
     lk = kwargs.get("lk",None)
     pk = kwargs.get("pk",None)
+    n_rad = kwargs.get("n_rad",0)
+
+    if mask_type == "cartesian":kwargs["pk"] = pcart(lk)
+    if mask_type == "radial_CO":kwargs["pk"] = pradCO(lk,n_rad)
     
     verbose = kwargs.get("verbose",0)
     
     if images is None or len(images)<1:raise ValueError("At least one image is needed")
     if len(images)!=len(kspace_data):raise ValueError("Need as many images and kspace data")
-        
+
+
     #Computing gradient
     Nimages = len(images)
 
-    if mask_type=="cartesian":
-        gEp = np.zeros(lk.shape)
-        if verbose>=0:print("\n\nEVALUATING GRAD_E(l)")
-            
-        for i in range(Nimages):
-            if verbose>=0:print(f"\nImage {i+1}:")
-            gEp += grad_pcart(lk,grad_L(pk=pcart(lk),u0_mat=images[i],y=kspace_data[i],**kwargs))
-            
-        #If gEp=0, CG didn't converge, so don't change pk so that L-BFGS stops        
-        if np.all(gEp == 0):return gEp
-        else:return gEp+grad_P(lk,param["beta"])
+    gEp = np.zeros(len(kspace_data[0])+1)
+    if verbose>=0:print("\n\nEVALUATING GRAD_E(p)")
     
-    
-    else:
-        gEp = np.zeros(pk.shape)
-        if verbose>=0:print("\n\nEVALUATING GRAD_E(p)")
-            
-        for i in range(Nimages):
-            gEp += grad_L(u0_mat=images[i],y=kspace_data[i],**kwargs)
-            
-        #If gEp=0, CG didn't converge, so don't change pk so that L-BFGS stops
-        if np.all(gEp == 0):return gEp
-        else: return gEp+grad_P(pk,param["beta"])
+    #Gradient with respect to p in pk
+    for i in range(Nimages):
+        if verbose>=0:print(f"\nImage {i+1}:")
+        gEp += grad_L(u0_mat=images[i],y=kspace_data[i],**kwargs)/Nimages
+
+
+    #Last operation if parametrisation
+    if mask_type == "cartesian":
+        gEp = grad_pcart(lk,gEp)
+        return gEp+grad_P(lk,param["beta"])
+    if mask_type == "radial_CO":
+        gEp = grad_pradCO(lk,gEp)
+        return gEp+grad_P(lk,param["beta"])
+
+    else:return gEp+grad_P(pk,param["beta"])
