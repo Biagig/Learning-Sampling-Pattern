@@ -128,8 +128,7 @@ def Dpu_Ereg(u,p,w,**kwargs):
     return np.sum(np.real(w)*np.real( exp ) + np.imag( w ) * np.imag( exp ))
 
 def Dpu_Etot(u,p,w,**kwargs):
-    g = np.zeros((u.shape[0]**2+1,))
+    g = np.zeros(p.shape)
     g[:-1] = Dpu_Edata(u,p,w,**kwargs)
-    #g[-1] = 0
     g[-1] = Dpu_Ereg(u,p,w,**kwargs)
     return g

@@ -8,8 +8,24 @@ from UpperLevel.parametrisation import pcart,grad_pcart
 from scipy.optimize.lbfgsb import fmin_l_bfgs_b
 
 
+# -- Implements the upper level algorithm --
+# ------------------------------------------
+# --
+# -- INPUTS FOR ANY INSTANCE:
+#               fourier_op, linear_op, param, const (optional) for PDHG
+#               images: list of all images used to evaluate the reconstruction
+#               kspace_data: list of noised kspace data associated to these images
+#               maxfun, maxiter: parameteres for L-BFGS-B (see scipy doc if needed)
+#               verbose (optional)
+# --
+# -- METHODS:
+#               optimize: main function. Returns a mask learned and two lists energy_upper and alphas showing the evolution
+#                         of these parameters after each iteration
+#               fcall: callback function for L-BFGS-B. Stores informations in energy_upper and alphas and prints it
+
 class Mask_Learner(object):
     def __init__(self,**kwargs):
+        #For plots and returns
         self.energy_upper = []
         self.alphas = []
         self.niter = 0
@@ -92,23 +108,22 @@ class Mask_Learner(object):
         #Case 2: Learning points
         else:
             #Initializing
-            n = int(np.sqrt(len(p0)))
-            self.energy_upper = [E(pk=p0 , mask_type="" , images=self.images , kspace_data=self.kspace_data ,
+            self.energy_upper = [E(pk=p0 , mask_type=mask_type , images=self.images , kspace_data=self.kspace_data ,
                                                     fourier_op=self.fourier_op , linear_op=self.linear_op , param=self.param , 
                                                     verbose=self.verbose , const=self.const)]
             self.alphas = [p0[-1]]
 
             #Using L-BFGS-B
-            pf,_,_ = fmin_l_bfgs_b(lambda x:E(pk=x , mask_type=""  , images=self.images , kspace_data=self.kspace_data ,
+            pf,_,_ = fmin_l_bfgs_b(lambda x:E(pk=x , mask_type=mask_type  , images=self.images , kspace_data=self.kspace_data ,
                                                     fourier_op=self.fourier_op , linear_op=self.linear_op , param=self.param , 
                                                     verbose=self.verbose , const=self.const) , 
                                         p0,
-                                        lambda x:grad_E(pk=x , mask_type="" ,images=self.images,kspace_data=self.kspace_data,
+                                        lambda x:grad_E(pk=x , mask_type=mask_type ,images=self.images,kspace_data=self.kspace_data,
                                                         fourier_op=self.fourier_op , linear_op=self.linear_op , param=self.param , 
                                                         verbose=self.verbose , const=self.const),
-                                        bounds=[(0,1)]*n**2+[(1e-10,np.inf)],pgtol=1e-6,
+                                        bounds=[(0,1)]*(len(p0)-1)+[(1e-10,np.inf)],pgtol=1e-6,
                                         maxfun=self.maxfun , maxiter=self.maxiter , maxls=2,
-                                        callback = lambda x:self.fcall(x,""))
+                                        callback = lambda x:self.fcall(x,mask_type))
 
             #Returning output
             print("\033[1m" + f"\nFINISHED IN {time.time()-t1} SECONDS\n" + "\033[0m")

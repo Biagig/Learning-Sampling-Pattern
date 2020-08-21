@@ -76,7 +76,6 @@ def E(**kwargs):
 
     #Compute L(pk/lk)
     Nimages = len(images)
-    param["pn1"]=pk[-1]
     for i in range(Nimages):
         if verbose>=0:print(f"\nImage {i+1}:")
         u0_mat,y = images[i],kspace_data[i]
@@ -117,6 +116,7 @@ def grad_L(**kwargs):
     max_cgiter = kwargs.get("max_cgiter",4000)
     cgtol = kwargs.get("cgtol",1e-6)
     compute_conv = kwargs.get("compute_conv",False)
+    mask_type = kwargs.get("mask_type","")
 
     u0_mat = kwargs.get("u0_mat",None)
     param = kwargs.get("param",None)
@@ -124,6 +124,7 @@ def grad_L(**kwargs):
     pk = kwargs.get("pk",None)
     fourier_op = kwargs.get("fourier_op",None)
     linear_op = kwargs.get("linear_op",None)
+    const = kwargs.get("const",{})
     
 
     verbose = kwargs.get("verbose",0)
@@ -135,10 +136,9 @@ def grad_L(**kwargs):
     
     # -- Compute uk from pk with lower level solver if not given
     if verbose>=0:print("\nStarting PDHG")
-    param["pn1"]=pk[-1]
-    uk,_ = pdhg(y , pk , 
+    uk,_ = pdhg(y , pk , mask_type = mask_type ,
                 fourier_op = fourier_op , linear_op = linear_op , param = param,
-                maxit = 50 , verbose = verbose)
+                maxit = 50 , verbose = verbose , const = const)
     
     # -- Defining linear operator from pk and uk
     def mv(w):
@@ -244,7 +244,7 @@ def grad_E(**kwargs):
             
         for i in range(Nimages):
             gEp += grad_L(u0_mat=images[i],y=kspace_data[i],**kwargs)
-    
+            
         #If gEp=0, CG didn't converge, so don't change pk so that L-BFGS stops
         if np.all(gEp == 0):return gEp
         else: return gEp+grad_P(pk,param["beta"])
