@@ -42,6 +42,7 @@ class Mask_Learner(object):
         self.verbose = kwargs.get("verbose",-1)
         self.maxfun = kwargs.get("maxfun",20)
         self.maxiter = kwargs.get("maxiter",20)
+        self.pgtol = kwargs.get("pgtol",1e-6)
 
 
     # -- Callback function --
@@ -66,6 +67,8 @@ class Mask_Learner(object):
         # ------------------------
         #Upper level inputs
         mask_type = kwargs.get("mask_type","")
+        learn_mask = kwargs.get("learn_mask",True)
+        learn_alpha = kwargs.get("learn_alpha",True)
         l0 = kwargs.get("l0",None)
         p0 = kwargs.get("p0",None)
         shots = False
@@ -105,8 +108,9 @@ class Mask_Learner(object):
                                         l0,
                                         lambda x:grad_E(lk=x , mask_type=mask_type ,images=self.images,kspace_data=self.kspace_data,
                                                         fourier_op=self.fourier_op , linear_op=self.linear_op , param=self.param , 
-                                                        verbose=self.verbose , const=self.const , n_rad = self.n_rad),
-                                        bounds=[(0,1)]*n+[(1e-10,np.inf)],pgtol=1e-6,
+                                                        verbose=self.verbose , const=self.const , n_rad = self.n_rad ,
+                                                        learn_mask = learn_mask , learn_alpha = learn_alpha),
+                                        bounds=[(0,1)]*n+[(1e-10,np.inf)],pgtol=self.pgtol,
                                         maxfun=self.maxfun , maxiter=self.maxiter , maxls=2 ,
                                         callback = lambda x:self.fcall(x,mask_type))
 
@@ -118,8 +122,9 @@ class Mask_Learner(object):
                                         p0,
                                         lambda x:grad_E(pk=x , mask_type=mask_type ,images=self.images,kspace_data=self.kspace_data,
                                                         fourier_op=self.fourier_op , linear_op=self.linear_op , param=self.param , 
-                                                        verbose=self.verbose , const=self.const , n_rad = self.n_rad),
-                                        bounds=[(0,1)]*n+[(1e-10,np.inf)],pgtol=1e-6,
+                                                        verbose=self.verbose , const=self.const , n_rad = self.n_rad ,
+                                                        learn_mask = learn_mask , learn_alpha = learn_alpha),
+                                        bounds=[(0,1)]*n+[(1e-10,np.inf)],pgtol=self.pgtol,
                                         maxfun=self.maxfun , maxiter=self.maxiter , maxls=2 ,
                                         callback = lambda x:self.fcall(x,mask_type))
 

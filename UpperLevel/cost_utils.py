@@ -17,10 +17,11 @@ def L(u,u2,c):return c/2 * np.linalg.norm(u.flatten()-u2.flatten())**2
 def Du_L(u,u2,c):return c*(u-u2)
 
 # -- Penalisation --
-def P(p,beta):return beta*np.sum(p[:-1]*(2-p[:-1]))
+c=5
+def P(p,beta):return beta*np.sum(p[:-1]*(1+c*(1-p[:-1])))
 def grad_P(p,beta):
     Dp = np.zeros(p.shape)
-    Dp[:-1] = 2*beta*(1-p[:-1])
+    Dp[:-1] = beta*(1+(c-2*c*p[:-1]))
     return Dp
 
 
@@ -119,6 +120,8 @@ def grad_L(**kwargs):
     cgtol = kwargs.get("cgtol",1e-6)
     compute_conv = kwargs.get("compute_conv",False)
     mask_type = kwargs.get("mask_type","")
+    learn_mask = kwargs.get("learn_mask",True)
+    learn_alpha = kwargs.get("learn_alpha",True)
 
     u0_mat = kwargs.get("u0_mat",None)
     param = kwargs.get("param",None)
@@ -183,7 +186,9 @@ def grad_L(**kwargs):
                                fourier_op=fourier_op,
                                y=y,
                                linear_op=linear_op,
-                               gamma=param["gamma"])
+                               gamma=param["gamma"],
+                               learn_mask = learn_mask,
+                               learn_alpha = learn_alpha)
 
 
 # -- Definition of gradient of E --

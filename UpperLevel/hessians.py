@@ -128,7 +128,10 @@ def Dpu_Ereg(u,p,w,**kwargs):
     return np.sum(np.real(w)*np.real( exp ) + np.imag( w ) * np.imag( exp ))
 
 def Dpu_Etot(u,p,w,**kwargs):
+    learn_mask = kwargs.get("learn_mask",True)
+    learn_alpha = kwargs.get("learn_alpha",True)
     g = np.zeros(p.shape)
-    g[:-1] = Dpu_Edata(u,p,w,**kwargs)
-    g[-1] = Dpu_Ereg(u,p,w,**kwargs)
+
+    if learn_mask:g[:-1] = Dpu_Edata(u,p,w,**kwargs)
+    if learn_alpha:g[-1] = Dpu_Ereg(u,p,w,**kwargs)
     return g
