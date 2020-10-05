@@ -6,7 +6,8 @@ from LowerLevel.prox import prox_F1_dual,prox_F2_dual,prox_G
 from LowerLevel.cost_utils import energy_wavelet
 import time
 from modopt.math.metrics import ssim
-from mri.operators.utils import gridded_inverse_fourier_transform_nd
+from mri.operators import NonCartesianFFT, WaveletUD2, WaveletN
+
 
 def compute_constants(param,const,p):
     # --
@@ -89,8 +90,21 @@ def pdhg(data,p,**kwargs):
     fourier_op = kwargs.get("fourier_op",None)
     linear_op = kwargs.get("linear_op",None)
     param = kwargs.get("param",None)
+
+    # Create fourier_op and linear_op if not given for multithreading
+    if fourier_op is None:
+        samples = kwargs.get("samples",[])
+        shape = kwargs.get("shape",())
+        if samples is not None:
+            fourier_op = NonCartesianFFT(samples=samples, shape=shape,implementation='cpu')
     if fourier_op is None: raise ValueError("A fourier operator fourier_op must be given")
+    if linear_op is None:
+        wavelet_name = kwargs.get("wavelet_name","")
+        wavelet_scale = kwargs.get("wavelet_scale",1)
+        if wavelet_name != "":
+            linear_op = WaveletN(wavelet_name=wavelet_name,nb_scale=wavelet_scale,padding_mode = "periodization")
     if linear_op is None: raise ValueError("A linear operator linear_op must be given")
+    
     if param is None: raise ValueError("Lower level parameters must be given")
     mask_type = kwargs.get("mask_type","")
 
