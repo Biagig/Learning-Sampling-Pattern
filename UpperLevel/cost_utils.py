@@ -8,8 +8,10 @@ import time
 from LowerLevel.pdhg import *
 from UpperLevel.parametrisation import *
 from UpperLevel.hessians import Du2_Etot,Dpu_Etot
+from mri.operators import NonCartesianFFT, WaveletUD2, WaveletN
 
 
+from joblib import Parallel,delayed
 # -- Base functions --
 # --------------------
 # -- Efficiency of the reconstruction --
@@ -17,7 +19,7 @@ def L(u,u2,c):return c/2 * np.linalg.norm(u.flatten()-u2.flatten())**2
 def Du_L(u,u2,c):return c*(u-u2)
 
 # -- Penalisation --
-c=5
+c=0
 def P(p,beta):return beta*np.sum(p[:-1]*(1+c*(1-p[:-1])))
 def grad_P(p,beta):
     Dp = np.zeros(p.shape)
@@ -52,6 +54,13 @@ def E(**kwargs):
     kspace_data = kwargs.get("kspace_data",None)
     param = kwargs.get("param",None)
 
+    samples = kwargs.get("samples",[])
+    fourier_op = NonCartesianFFT(samples=samples, shape=images[0].shape,implementation='cpu')
+    wavelet_name = kwargs.get("wavelet_name","")
+    wavelet_scale = kwargs.get("wavelet_scale",1)
+    linear_op = WaveletN(wavelet_name=wavelet_name,nb_scale=wavelet_scale,padding_mode = "periodization")
+
+    parallel = kwargs.get("parallel",False)
     mask_type = kwargs.get("mask_type","")
     lk = kwargs.get("lk",None)
     pk = kwargs.get("pk",None)
@@ -79,14 +88,25 @@ def E(**kwargs):
 
     #Compute L(pk/lk)
     Nimages = len(images)
-    for i in range(Nimages):
-        if verbose>=0:print(f"\nImage {i+1}:")
-        u0_mat,y = images[i],kspace_data[i]
+    if parallel:
+        uk_list = Parallel( n_jobs = -1, verbose = 0 )(
+            delayed(pdhg)(
+                kspace_data[i] , pk ,
+                samples = samples , shape = images[0].shape , wavelet_name = wavelet_name , wavelet_scale = wavelet_scale ,
+                param = param , mask_type = mask_type , const = kwargs.get("const",{}) , verbose = -1
+            )
+            for i in range(Nimages)
+        )
+        Ep += np.sum([L(uk_list[i][0],images[i],param["c"]) for i in range(Nimages)])/Nimages
+    else:
+        for i in range(Nimages):
+            if verbose>=0:print(f"\nImage {i+1}:")
+            u0_mat,y = images[i],kspace_data[i]
 
-        if verbose>0:print("\nStarting PDHG")
-        uk,_ = pdhg(y , pk , maxit = 50 , **kwargs)
-        
-        Ep += L(uk,u0_mat,param["c"])/Nimages
+            if verbose>0:print("\nStarting PDHG")
+            uk,_ = pdhg(y , pk , maxit = 50 , fourier_op = fourier_op , linear_op = linear_op , **kwargs)
+            
+            Ep += L(uk,u0_mat,param["c"])/Nimages
     
     return Ep
 
@@ -127,11 +147,14 @@ def grad_L(**kwargs):
     param = kwargs.get("param",None)
     y = kwargs.get("y",None)
     pk = kwargs.get("pk",None)
-    fourier_op = kwargs.get("fourier_op",None)
-    linear_op = kwargs.get("linear_op",None)
-    const = kwargs.get("const",{})
     
-
+    samples = kwargs.get("samples",[])
+    fourier_op = NonCartesianFFT(samples=samples, shape=u0_mat.shape,implementation='cpu')
+    wavelet_name = kwargs.get("wavelet_name","")
+    wavelet_scale = kwargs.get("wavelet_scale",1)
+    linear_op = WaveletN(wavelet_name=wavelet_name,nb_scale=wavelet_scale,padding_mode = "periodization")
+    const = kwargs.get("const",{})
+        
     verbose = kwargs.get("verbose",0)
     cg_conv = []
     
@@ -219,6 +242,8 @@ def grad_E(**kwargs):
     images = kwargs.get("images",None)       
     kspace_data = kwargs.get("kspace_data",None)
     param = kwargs.get("param",None)
+    parallel = kwargs.get("parallel",False)
+    parallel_verbose = kwargs.get("parallel_verbose",-1)
     
     mask_type = kwargs.get("mask_type","")
     lk = kwargs.get("lk",None)
@@ -228,7 +253,7 @@ def grad_E(**kwargs):
     if mask_type == "cartesian":kwargs["pk"] = pcart(lk)
     if mask_type == "radial_CO":kwargs["pk"] = pradCO(lk,n_rad)
     
-    verbose = kwargs.get("verbose",0)
+    verbose = kwargs.get("verbose",-1)
     
     if images is None or len(images)<1:raise ValueError("At least one image is needed")
     if len(images)!=len(kspace_data):raise ValueError("Need as many images and kspace data")
@@ -241,9 +266,20 @@ def grad_E(**kwargs):
     if verbose>=0:print("\n\nEVALUATING GRAD_E(p)")
     
     #Gradient with respect to p in pk
-    for i in range(Nimages):
-        if verbose>=0:print(f"\nImage {i+1}:")
-        gEp += grad_L(u0_mat=images[i],y=kspace_data[i],**kwargs)/Nimages
+    if parallel:
+        grad_list = Parallel( n_jobs = -1, verbose = parallel_verbose )(
+            delayed(grad_L)(
+                u0_mat = images[i],
+                y=kspace_data[i],
+                **kwargs
+            )
+            for i in range(Nimages)
+        )
+        gEp = np.sum(grad_list,axis=0)
+    else:
+        for i in range(Nimages):
+            if verbose>=0:print(f"\nImage {i+1}:")
+            gEp += grad_L(u0_mat=images[i],y=kspace_data[i],**kwargs)/Nimages
 
 
     #Last operation if parametrisation
@@ -253,5 +289,4 @@ def grad_E(**kwargs):
     if mask_type == "radial_CO":
         gEp = grad_pradCO(lk,gEp)
         return gEp+grad_P(lk,param["beta"])
-
-    else:return gEp+grad_P(pk,param["beta"])
+    return gEp+grad_P(pk,param["beta"])
